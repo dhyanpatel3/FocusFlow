@@ -24,14 +24,16 @@ export default function StudyHistory({ sessions }) {
           <div
             key={s._id || s.id || Math.random()}
             style={{
-              background: "#151726",
-              border: "1px solid #2a2e4a",
+              background: "var(--card)",
+              border: "1px solid var(--card-border)",
               padding: 14,
               borderRadius: 12,
             }}
           >
             <div style={{ fontWeight: 600 }}>{s.subject}</div>
-            <div style={{ opacity: 0.85 }}>{fmtDuration(s.duration)}</div>
+            <div style={{ opacity: 0.85 }}>
+              {fmtDuration(s.duration)} • {s.type || "Stopwatch"}
+            </div>
             <div style={{ opacity: 0.6, fontSize: 12 }}>
               {new Date(s.createdAt).toLocaleString()}
             </div>

@@ -9,6 +9,7 @@ export default function TimerControls({
   onPause,
   onReset,
   onCustom,
+  onOpenLogger,
 }) {
   const btn = {
     padding: "10px 16px",
@@ -66,6 +67,10 @@ export default function TimerControls({
       )}
       <button style={btn} onClick={onReset}>
         Reset
+      </button>
+
+      <button style={btn} onClick={onOpenLogger}>
+        Save Session
       </button>
 
       <div style={{ width: 16 }} />

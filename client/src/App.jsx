@@ -3,12 +3,12 @@ import Timer from "./components/Timer";
 import TimerControls from "./components/TimerControls";
 import SessionLogger from "./components/SessionLogger";
 import StudyHistory from "./components/StudyHistory";
+import { useAuth } from "./auth/AuthContext";
 
-const DARK_BG = "#1A1A2E";
-const TEXT = "#EAEAEA";
 const ACCENT = "#00F5D4";
 
 export default function App() {
+  const { token, user, logout } = useAuth();
   const [time, setTime] = useState(0); // seconds
   const [isActive, setIsActive] = useState(false);
   const [mode, setMode] = useState("Stopwatch"); // or 'Pomodoro'
@@ -17,6 +17,9 @@ export default function App() {
   const [showLogger, setShowLogger] = useState(false);
   const [lastDuration, setLastDuration] = useState(0);
   const [sessions, setSessions] = useState([]);
+  const [theme, setTheme] = useState("dark");
+  const [clockOnly, setClockOnly] = useState(false); // fullscreen clock-only mode
+  const [elapsedThisSession, setElapsedThisSession] = useState(0); // seconds actually elapsed in current session
 
   // Soft notification sound
   const ding = React.useCallback(() => {
@@ -43,6 +46,7 @@ export default function App() {
       id = setInterval(() => {
         if (mode === "Stopwatch") {
           setTime((t) => t + 1);
+          setElapsedThisSession((e) => e + 1);
         } else {
           if (!target) return;
           const remaining = Math.max(
@@ -50,13 +54,14 @@ export default function App() {
             Math.floor((target - Date.now()) / 1000)
           );
           setTime(remaining);
+          setElapsedThisSession((e) => e + 1);
           if (remaining <= 0) {
             // phase end
             ding();
             if (!isBreak) {
               // focus finished: log session and auto-start 5-min break
               setShowLogger(true);
-              setLastDuration(25 * 60);
+              setLastDuration(elapsedThisSession || 25 * 60);
               // auto start break timer
               const breakDur = 5 * 60;
               setIsBreak(true);
@@ -64,6 +69,7 @@ export default function App() {
               setTarget(Date.now() + breakDur * 1000);
               setTime(breakDur);
               setIsActive(true);
+              setElapsedThisSession(0);
             } else {
               // break finished: stop, do not log
               setIsActive(false);
@@ -71,6 +77,7 @@ export default function App() {
               setMode("Pomodoro");
               setTarget(null);
               setTime(0);
+              setElapsedThisSession(0);
             }
           }
         }
@@ -80,12 +87,19 @@ export default function App() {
   }, [isActive, mode, target, isBreak]);
 
   useEffect(() => {
-    // initial fetch sessions
-    fetch("/api/sessions")
+    if (!token) {
+      setSessions([]);
+      return;
+    }
+    fetch("/api/sessions", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((data) => setSessions(data))
       .catch(() => {});
-  }, []);
+  }, [token]);
+
+  useEffect(() => {
+    document.body.classList.toggle("theme-light", theme === "light");
+  }, [theme]);
 
   const startStopwatch = () => {
     setMode("Stopwatch");
@@ -113,22 +127,31 @@ export default function App() {
 
   const reset = () => {
     setIsActive(false);
-    if (mode === "Stopwatch") setLastDuration(time);
+    if (mode === "Stopwatch") setLastDuration(elapsedThisSession || time);
     setTime(0);
     setTarget(null);
     setShowLogger(true);
     ding();
+    setElapsedThisSession(0);
   };
 
   const saveSession = async (subject) => {
     const duration =
       lastDuration ||
+      elapsedThisSession ||
       (mode === "Stopwatch" ? time : isBreak ? 5 * 60 : 25 * 60);
     try {
       const res = await fetch("/api/sessions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, duration }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          subject,
+          duration,
+          type: isBreak ? "Break" : mode,
+        }),
       });
       const created = await res.json();
       setSessions((prev) => [created, ...prev]);
@@ -139,39 +162,136 @@ export default function App() {
     setLastDuration(0);
   };
 
+  // Keep clockOnly state in sync if user exits fullscreen via ESC
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setClockOnly(false);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
   const setCustomTimer = (seconds) => {
     setMode("Pomodoro");
     setIsBreak(false);
     setTarget(Date.now() + seconds * 1000);
     setTime(seconds);
     setIsActive(true);
+    setElapsedThisSession(0);
   };
+
+  const newSession = () => {
+    // Stop current, clear trackers and let user choose new mode
+    setIsActive(false);
+    setIsBreak(false);
+    setMode("Stopwatch");
+    setTime(0);
+    setTarget(null);
+    setElapsedThisSession(0);
+  };
+
+  const onTimerClick = async () => {
+    try {
+      if (!clockOnly) {
+        await document.documentElement.requestFullscreen();
+        setClockOnly(true);
+      } else if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        setClockOnly(false);
+      } else {
+        setClockOnly(false);
+      }
+    } catch {}
+  };
+
+  if (clockOnly) {
+    return (
+      <div
+        onClick={onTimerClick}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "var(--bg)",
+          color: "var(--text)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          userSelect: "none",
+          cursor: "zoom-out",
+        }}
+      >
+        <div style={{ transform: "scale(2.2)", transformOrigin: "center" }}>
+          <Timer seconds={time} accent={ACCENT} mode={mode} isBreak={isBreak} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: DARK_BG,
-        color: TEXT,
         fontFamily:
           "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
       }}
     >
-      <div
-        style={{
-          maxWidth: 900,
-          margin: "0 auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: 24,
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "48px 16px",
-        }}
-      >
-        <h1 style={{ margin: 0, fontWeight: 800 }}>FocusFlow</h1>
+      <div className="container">
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <h1 style={{ margin: 0, fontWeight: 800 }}>FocusFlow</h1>
+          <div style={{ display: "flex", gap: 8 }}>
+            <a
+              href="/profile"
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid var(--card-border)",
+                background: "var(--card)",
+                color: "var(--text)",
+                textDecoration: "none",
+              }}
+            >
+              {user?.name || "Profile"}
+            </a>
+            <button
+              onClick={newSession}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid var(--card-border)",
+                background: "var(--card)",
+                color: "var(--text)",
+                cursor: "pointer",
+              }}
+            >
+              New Session
+            </button>
+            <button
+              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid var(--card-border)",
+                background: "var(--card)",
+                color: "var(--text)",
+                cursor: "pointer",
+              }}
+            >
+              {theme === "dark" ? "Light Mode" : "Dark Mode"}
+            </button>
+          </div>
+        </div>
 
-        <Timer seconds={time} accent={ACCENT} mode={mode} isBreak={isBreak} />
+        <div onClick={onTimerClick} style={{ cursor: "zoom-in" }}>
+          <Timer seconds={time} accent={ACCENT} mode={mode} isBreak={isBreak} />
+        </div>
 
         <TimerControls
           isActive={isActive}
@@ -182,6 +302,7 @@ export default function App() {
           onPause={pause}
           onReset={reset}
           onCustom={setCustomTimer}
+          onOpenLogger={() => setShowLogger(true)}
         />
 
         <StudyHistory sessions={sessions} />
