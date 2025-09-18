@@ -42,7 +42,11 @@ export default async function handler(req, res) {
         console.error("DB connection failed:", dbErr);
         res.statusCode = 500;
         res.setHeader("content-type", "application/json");
-        return res.end(JSON.stringify({ error: "db_connect_failed" }));
+        const code =
+          dbErr && dbErr.message === "MONGODB_URI_MISSING"
+            ? "db_uri_missing"
+            : "db_connect_failed";
+        return res.end(JSON.stringify({ error: code }));
       }
     }
     return app(req, res);

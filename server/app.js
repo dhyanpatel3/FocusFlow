@@ -33,14 +33,25 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 app.use("/api/sessions", sessionsRouter);
 app.use("/api/auth", authRouter);
 
-const MONGODB_URI =
-  process.env.MONGODB_URI || "mongodb://localhost:27017/focusflow";
+const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
+const ENV_MONGODB_URI = process.env.MONGODB_URI;
+const LOCAL_FALLBACK = "mongodb://localhost:27017/focusflow";
+const MONGODB_URI = isProd
+  ? ENV_MONGODB_URI // in prod, require explicit URI
+  : ENV_MONGODB_URI || LOCAL_FALLBACK; // in dev, allow local fallback
 
 let dbPromise = null;
 export async function ensureDb() {
   if (mongoose.connection.readyState >= 1) return;
   if (!dbPromise) {
-    dbPromise = mongoose.connect(MONGODB_URI).then(() => {
+    if (!MONGODB_URI) {
+      // Fail fast in production when no URI is provided
+      const err = new Error("MONGODB_URI_MISSING");
+      // throw to be caught by serverless handler
+      throw err;
+    }
+    const connectOpts = { serverSelectionTimeoutMS: 8000 };
+    dbPromise = mongoose.connect(MONGODB_URI, connectOpts).then(() => {
       console.log("MongoDB connected");
     });
   }
