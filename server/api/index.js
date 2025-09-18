@@ -36,7 +36,14 @@ export default async function handler(req, res) {
     const url = req.url || "";
     // Allow health checks without DB to avoid crashes when env/DB is not ready
     if (!url.startsWith("/api/health")) {
-      await ensureDb();
+      try {
+        await ensureDb();
+      } catch (dbErr) {
+        console.error("DB connection failed:", dbErr);
+        res.statusCode = 500;
+        res.setHeader("content-type", "application/json");
+        return res.end(JSON.stringify({ error: "db_connect_failed" }));
+      }
     }
     return app(req, res);
   } catch (err) {
