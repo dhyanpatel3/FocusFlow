@@ -18,6 +18,7 @@ client/dist/
 # Env files
 .env
 server/.env
+client/.env
 
 # Editor
 .vscode/
