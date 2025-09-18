@@ -8,7 +8,25 @@ import authRouter from "./routes/auth.js";
 dotenv.config();
 
 export const app = express();
-app.use(cors());
+// CORS for local dev and when running the app directly (not via serverless wrapper)
+const corsOrigins = (process.env.CORS_ORIGIN || "*")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // non-browser or same-origin
+      if (corsOrigins.includes("*")) return callback(null, true);
+      if (corsOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: false,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    maxAge: 86400,
+  })
+);
 app.use(express.json());
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
