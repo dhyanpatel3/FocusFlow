@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { API_BASE } from "../lib/api";
 
 const AuthCtx = createContext(null);
 
@@ -20,7 +21,9 @@ export function AuthProvider({ children }) {
       setUser(null);
       return;
     }
-    fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data) => setUser(data.user))
       .catch(() => {

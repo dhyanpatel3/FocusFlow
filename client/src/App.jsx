@@ -4,6 +4,7 @@ import TimerControls from "./components/TimerControls";
 import SessionLogger from "./components/SessionLogger";
 import StudyHistory from "./components/StudyHistory";
 import { useAuth } from "./auth/AuthContext";
+import { API_BASE } from "./lib/api";
 
 const ACCENT = "#00F5D4";
 
@@ -91,7 +92,9 @@ export default function App() {
       setSessions([]);
       return;
     }
-    fetch("/api/sessions", { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API_BASE}/sessions`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((r) => r.json())
       .then((data) => setSessions(data))
       .catch(() => {});
@@ -141,7 +144,7 @@ export default function App() {
       elapsedThisSession ||
       (mode === "Stopwatch" ? time : isBreak ? 5 * 60 : 25 * 60);
     try {
-      const res = await fetch("/api/sessions", {
+      const res = await fetch(`${API_BASE}/sessions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

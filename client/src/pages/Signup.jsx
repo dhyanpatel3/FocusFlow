@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { API_BASE } from "../lib/api";
 
 export default function Signup() {
   const { login } = useAuth();
@@ -14,7 +15,7 @@ export default function Signup() {
     e.preventDefault();
     setError("");
     try {
-      const res = await fetch("/api/auth/signup", {
+      const res = await fetch(`${API_BASE}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
