@@ -1,0 +1,14 @@
+{
+  "name": "focusflow",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "dev": "powershell -NoProfile -Command \"Start-Process -FilePath 'npm' -ArgumentList '--prefix server run dev' -NoNewWindow; Start-Sleep -Seconds 1; Start-Process -FilePath 'npm' -ArgumentList '--prefix client run dev' -NoNewWindow\""
+  }
+}
